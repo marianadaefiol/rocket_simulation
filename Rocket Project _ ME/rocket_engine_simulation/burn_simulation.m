@@ -1,0 +1,136 @@
+close;
+clear;
+tic;
+
+% Parâmetros constantes
+alfa = 16.3;        % ângulo entre a seção divergente e eixo do motor (deg)
+rho = 1730.0;       % densidade do propelente (kg/m^3)
+a = 0.073;          % coeficiente de queima (m/s)
+e = 1.4;            % coeficiente de erosão
+n = 0.51;           % expoente de queima
+R = 8.3143;         % constante universal dos gases (J/(mol * K))
+g = 9.8;            % aceleração da gravidade (m/s^2)
+T = 0.001;          % tamanho do passo temporal
+Pa = 101325.0;      % pressão atmosférica ao nível do mar (Pa)
+
+% Parâmetros do motor
+dg = 9.8e-3;        % diâmetro da garganta
+de = 19.3e-3;       % diâmetro de escape da seção divergente
+Ag = pi * dg^2/4;   % área da garganta
+Ae = pi * de^2/4;   % área de escape da seção divergente
+
+% Parâmetros do propelente
+din = 0.008;        % diâmetro interno médio do propelente (m)
+dex = 0.04;         % diâmetro externo médio do propelente (m)
+m = 0.300;          % massa média do propelente (kg)
+
+% Parâmetros de partida
+Pext = 101325.0;    % pressão externa inicial (Pa)
+Po(1) = 20 * Pa;    % pressão interna inicial (Pa)
+
+% Comprimento médio do propelente
+hpr = m / (rho * pi * 0.25 * (dex^2 - din^2));
+
+% Ângulo da tubeira
+AngTub = (1 + cos(alfa * pi / 180))/2;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t = 0;
+while(1)
+t = t + 1;
+   
+% gamma com a pressão //////////
+gamma(t) = 1.15032 + 0.03418 * exp(-Po(t)/(23.24512 * Pa)); %#ok<*SAGROW>
+
+% Pext
+if (t == 1)
+	Pext(t) = newton_raphson(Ag,Ae,gamma(t),Po(t),Pa);
+else
+	Pext(t) = newton_raphson(Ag,Ae,gamma(t),Po(t),Pext(t-1));
+end
+
+% tau com a pressão /////////////
+tau(t) = ((2/(gamma(t) + 1))^((gamma(t) + 1)/(gamma(t) - 1)));
+
+% G ///////////////
+G(t) = 1 - (Pext(t)/Po(t))^((gamma(t) - 1)/(gamma(t)));
+
+% H 
+H(t) = 2 * gamma(t) * gamma(t) / (gamma(t) - 1);
+
+% M com a pressão
+M(t) = (26.86788 + 1.01785 * exp(-Po(t)/(40.53856 * Pa))) * 0.001; 
+
+% To com a pressão
+To(t) = 1811 - 296.66491 * exp(-Po(t)/(27.92945 * Pa)); 
+
+% X com a pressão 
+X(t) = 0.7363 + 0.11995 * exp(-Po(t)/(26.71262 * Pa));
+
+% rs com a pressão ////////////
+rs(t) = 0.01 * e * a * (Po(t)/Pa)^n;
+
+% Retrocesso e avanço dos diâmetros externo e interno durante a queima
+D = dex; % - 2 * T * sum(rs(1:t))
+d(t) = din + 2 * T * sum(rs(1:t));
+
+% Área de queima //////////////
+Ab(t) = pi * hpr * (dex + din) + pi*(dex^2 - din^2)/2 - 6 * pi * (din + dex) * T * sum(rs(1:t));
+
+% Empuxo /////////////
+Emp(t) = AngTub * (Ag * Po(t) * sqrt(H(t) * tau(t) * G(t)) + (Pext(t) - Pa) * Ae);
+
+% Se o avanço externo for menor ou igual ao avanço interno -> alterado
+% condição para acabar a queima; se igualar a simulação não para pois de de
+% 2,998 para 2,999...... 
+if (d(t) >= D)  
+   break;
+end
+
+% Pressão interna
+Po(t+1) = (Ab(t) * rs(t) * rho * X(t))/(Ag * sqrt(M(t) * tau(t) / R / To(t))); 
+end
+
+%%%%%%%%%%% Estudando as equações acima, geram as que necessitam pra
+%%%%%%%%%%% tabela 
+
+% Empuxo máximo
+Emax = max(Emp);
+
+% Impulso total
+I = T * cumsum(Emp);
+
+% Impulso total máximo
+Imax = max(I);
+
+% Impulso específico
+Is = max(I)/(m*g);
+
+% Tempo de queima
+Tq = t/1000;
+
+%%%%%%%%%%% PLOTS
+% Gráficos
+figure('Name', 'Empuxo');
+plot(Emp,'b-','LineWidth',2);
+xlabel('Tempo (ms)');
+ylabel('Empuxo (N)');
+hold on;
+grid on;
+
+figure('Name', 'Impulso');
+plot(I,'r-','LineWidth',2);
+xlabel('Tempo (ms)');
+ylabel('Impulso (Ns)');
+hold on;
+grid on;
+
+figure('Name', 'Po');
+plot(Po, 'm-','LineWidth',2);
+xlabel('Tempo (ms)');
+ylabel('Po (Pa)');
+hold on;
+grid on;
+
+toc
