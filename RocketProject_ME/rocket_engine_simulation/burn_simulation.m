@@ -16,8 +16,8 @@ Pa = 101325.0;      % pressão atmosférica ao nível do mar (Pa)
 % Parâmetros do motor
 dg = 9.8e-3;        % diâmetro da garganta
 de = 19.3e-3;       % diâmetro de escape da seção divergente
-Ag = pi * dg^2/4;   % área da garganta
-Ae = pi * de^2/4;   % área de escape da seção divergente
+Ag = pi * dg^2/4;   % área da garganta -> At
+Ae = pi * de^2/4;   % área de escape da seção divergente -> Ae
 
 % Parâmetros do propelente
 din = 0.008;        % diâmetro interno médio do propelente (m)
